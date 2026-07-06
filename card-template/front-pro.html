@@ -327,10 +327,14 @@ def check(candidate):
             var prompt = decodeHtml(`{{Prompt}}`);
             var testCode = readPyField('testCodeData');
             var entryPoints = decodeHtml(`{{EntryPoint}}`);
+            if (!testCode.trim()) {
+                outputWindow.setValue("No test cases are available for this card.");
+                return;
+            }
             // Resolve the candidate by the dataset entry point, but fall back to the
             // sole public method on Solution if the user renamed it (e.g. NeetCode's
             // hasDuplicate vs LeetCode's containsDuplicate).
-            var entryCode = `
+            var entryCode = entryPoints.trim() ? `
 try:
     _candidate = ${entryPoints}
 except AttributeError:
@@ -340,6 +344,12 @@ except AttributeError:
         raise
     _candidate = getattr(_sol, _methods[0])
 check(_candidate)
+` : `
+_sol = Solution()
+_methods = [m for m in dir(_sol) if not m.startswith('_') and callable(getattr(_sol, m))]
+if len(_methods) != 1:
+    raise RuntimeError('No entry point is configured for this card.')
+check(getattr(_sol, _methods[0]))
 `;
 
             var codeToRun = prompt + pythonCodeTestCaseRunner + code + testCode + entryCode;

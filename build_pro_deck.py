@@ -19,11 +19,478 @@ NEETCODE_LIST = "neetcode-150-list.json"
 APKG_OUT = "Anki-NeetCode-Pro.apkg"
 TEST_CODE_DIR = "data/test-code"
 
-# Design / class-based problems whose harness is operation-sequences, not
-# check(callable) — the dataset has no entry for them, tests stay empty.
+# Premium problems are stored locally because LeetCode does not expose their
+# full public question payload through the same unauthenticated path.
 paidOnly = ['alien-dictionary', 'encode-and-decode-strings', 'graph-valid-tree',
             'meeting-rooms-ii', 'meeting-rooms',
             'number-of-connected-components-in-an-undirected-graph', 'walls-and-gates']
+
+CODE_SNIPPET_OVERRIDES = {
+    'alien-dictionary': (
+        "class Solution:\n"
+        "    def alienOrder(self, words: List[str]) -> str:\n"
+        "        \n"
+    ),
+    'encode-and-decode-strings': (
+        "class Solution:\n"
+        "    def encode(self, strs: List[str]) -> str:\n"
+        "        \n"
+        "\n"
+        "    def decode(self, s: str) -> List[str]:\n"
+        "        \n"
+    ),
+    'graph-valid-tree': (
+        "class Solution:\n"
+        "    def validTree(self, n: int, edges: List[List[int]]) -> bool:\n"
+        "        \n"
+    ),
+    'meeting-rooms': (
+        "class Solution:\n"
+        "    def canAttendMeetings(self, intervals: List[List[int]]) -> bool:\n"
+        "        \n"
+    ),
+    'meeting-rooms-ii': (
+        "class Solution:\n"
+        "    def minMeetingRooms(self, intervals: List[List[int]]) -> int:\n"
+        "        \n"
+    ),
+    'number-of-connected-components-in-an-undirected-graph': (
+        "class Solution:\n"
+        "    def countComponents(self, n: int, edges: List[List[int]]) -> int:\n"
+        "        \n"
+    ),
+    'walls-and-gates': (
+        "class Solution:\n"
+        "    def wallsAndGates(self, rooms: List[List[int]]) -> None:\n"
+        "        \n"
+    ),
+}
+
+BASIC_PROMPT = (
+    "from typing import *\n"
+    "from collections import *\n"
+    "from heapq import *\n"
+    "from bisect import *\n\n"
+)
+
+TREE_PROMPT = BASIC_PROMPT + (
+    "class TreeNode:\n"
+    "    def __init__(self, x):\n"
+    "        self.val = x\n"
+    "        self.left = None\n"
+    "        self.right = None\n\n"
+)
+
+RANDOM_LIST_PROMPT = BASIC_PROMPT + (
+    "class Node:\n"
+    "    def __init__(self, x: int, next: 'Node' = None, random: 'Node' = None):\n"
+    "        self.val = int(x)\n"
+    "        self.next = next\n"
+    "        self.random = random\n\n"
+)
+
+GRAPH_PROMPT = BASIC_PROMPT + (
+    "class Node:\n"
+    "    def __init__(self, val = 0, neighbors = None):\n"
+    "        self.val = val\n"
+    "        self.neighbors = neighbors if neighbors is not None else []\n\n"
+)
+
+
+def _object_test_code(slug, cases):
+    return "# Test cases for %s\n_test_cases = %r\n\n" % (slug, cases) + (
+        "def check(cls):\n"
+        "    passed = 0\n"
+        "    failed = []\n"
+        "    for case_num, (ops, args, expected) in enumerate(_test_cases, 1):\n"
+        "        obj = None\n"
+        "        actual = []\n"
+        "        try:\n"
+        "            for op, arg in zip(ops, args):\n"
+        "                if obj is None:\n"
+        "                    obj = cls(*arg)\n"
+        "                    actual.append(None)\n"
+        "                else:\n"
+        "                    actual.append(getattr(obj, op)(*arg))\n"
+        "            assert actual == expected\n"
+        "            passed += 1\n"
+        "        except AssertionError:\n"
+        "            failed.append((case_num, expected, actual, 'wrong answer'))\n"
+        "        except Exception as e:\n"
+        "            failed.append((case_num, expected, actual, type(e).__name__ + ': ' + str(e)))\n"
+        "    total = len(_test_cases)\n"
+        "    print(f'{passed}/{total} tests passed')\n"
+        "    if failed:\n"
+        "        print(f'\\n{len(failed)} test(s) failed:')\n"
+        "        for case_num, expected, actual, err in failed:\n"
+        "            print(f'  Test #{case_num}: {err}')\n"
+        "            print(f'    Expected: {expected}')\n"
+        "            print(f'    Got: {actual}')\n"
+        "    else:\n"
+        "        print('All tests passed! \\u2713')\n"
+        "    return not failed\n"
+    )
+
+
+ENCODE_DECODE_TEST_CODE = (
+    "# Test cases for encode-and-decode-strings\n"
+    "_encode_decode_cases = [\n"
+    "    ['Hello', 'World'],\n"
+    "    [''],\n"
+    "    ['neet', 'code', 'love', 'you'],\n"
+    "    ['we', 'say', ':', 'yes'],\n"
+    "    ['#', '1#2', '', 'spaces are valid'],\n"
+    "]\n\n"
+    "def check(codec):\n"
+    "    passed = 0\n"
+    "    failed = []\n"
+    "    for i, strs in enumerate(_encode_decode_cases, 1):\n"
+    "        encoded = decoded = None\n"
+    "        try:\n"
+    "            encoded = codec.encode(strs)\n"
+    "            decoded = codec.decode(encoded)\n"
+    "            assert decoded == strs\n"
+    "            passed += 1\n"
+    "        except AssertionError:\n"
+    "            failed.append((i, strs, decoded, 'wrong answer'))\n"
+    "        except Exception as e:\n"
+    "            failed.append((i, strs, decoded, type(e).__name__ + ': ' + str(e)))\n"
+    "    total = len(_encode_decode_cases)\n"
+    "    print(f'{passed}/{total} tests passed')\n"
+    "    if failed:\n"
+    "        print(f'\\n{len(failed)} test(s) failed:')\n"
+    "        for i, strs, decoded, err in failed:\n"
+    "            print(f'  Test #{i}: {err}')\n"
+    "            print(f'    Input: {strs}')\n"
+    "            print(f'    Decoded: {decoded}')\n"
+    "    else:\n"
+    "        print('All tests passed! \\u2713')\n"
+    "    return not failed\n"
+)
+
+COPY_RANDOM_LIST_TEST_CODE = (
+    "# Test cases for copy-list-with-random-pointer\n"
+    "_test_cases = [\n"
+    "    [[7, None], [13, 0], [11, 4], [10, 2], [1, 0]],\n"
+    "    [[1, 1], [2, 1]],\n"
+    "    [],\n"
+    "]\n\n"
+    "def _build_random_list(items):\n"
+    "    nodes = [Node(v) for v, _ in items]\n"
+    "    for i, node in enumerate(nodes[:-1]):\n"
+    "        node.next = nodes[i + 1]\n"
+    "    for node, (_, random_index) in zip(nodes, items):\n"
+    "        node.random = None if random_index is None else nodes[random_index]\n"
+    "    return (nodes[0] if nodes else None), nodes\n\n"
+    "def _dump_random_list(head):\n"
+    "    nodes = []\n"
+    "    cur = head\n"
+    "    while cur:\n"
+    "        nodes.append(cur)\n"
+    "        cur = cur.next\n"
+    "    index = {node: i for i, node in enumerate(nodes)}\n"
+    "    return [[node.val, None if node.random is None else index.get(node.random)] for node in nodes]\n\n"
+    "def check(candidate):\n"
+    "    passed = 0\n"
+    "    failed = []\n"
+    "    for i, items in enumerate(_test_cases, 1):\n"
+    "        head, original_nodes = _build_random_list(items)\n"
+    "        try:\n"
+    "            cloned = candidate(head)\n"
+    "            clone_nodes = []\n"
+    "            cur = cloned\n"
+    "            while cur:\n"
+    "                clone_nodes.append(cur)\n"
+    "                cur = cur.next\n"
+    "            assert _dump_random_list(cloned) == items\n"
+    "            assert all(node not in original_nodes for node in clone_nodes)\n"
+    "            assert all(node.random is None or node.random not in original_nodes for node in clone_nodes)\n"
+    "            passed += 1\n"
+    "        except AssertionError:\n"
+    "            failed.append((i, 'wrong answer'))\n"
+    "        except Exception as e:\n"
+    "            failed.append((i, type(e).__name__ + ': ' + str(e)))\n"
+    "    print(f'{passed}/{len(_test_cases)} tests passed')\n"
+    "    if failed:\n"
+    "        print(f'\\n{len(failed)} test(s) failed:')\n"
+    "        for i, err in failed:\n"
+    "            print(f'  Test #{i}: {err}')\n"
+    "    else:\n"
+    "        print('All tests passed! \\u2713')\n"
+    "    return not failed\n"
+)
+
+BST_LCA_TEST_CODE = (
+    "# Test cases for lowest-common-ancestor-of-a-binary-search-tree\n"
+    "_test_cases = [\n"
+    "    ([6, 2, 8, 0, 4, 7, 9, None, None, 3, 5], 2, 8, 6),\n"
+    "    ([6, 2, 8, 0, 4, 7, 9, None, None, 3, 5], 2, 4, 2),\n"
+    "    ([2, 1], 2, 1, 2),\n"
+    "]\n\n"
+    "def _build_tree(values):\n"
+    "    if not values:\n"
+    "        return None, {}\n"
+    "    nodes = [None if v is None else TreeNode(v) for v in values]\n"
+    "    kids = nodes[::-1]\n"
+    "    root = kids.pop()\n"
+    "    for node in nodes:\n"
+    "        if node:\n"
+    "            if kids:\n"
+    "                node.left = kids.pop()\n"
+    "            if kids:\n"
+    "                node.right = kids.pop()\n"
+    "    return root, {node.val: node for node in nodes if node is not None}\n\n"
+    "def check(candidate):\n"
+    "    passed = 0\n"
+    "    failed = []\n"
+    "    for i, (values, p_val, q_val, expected) in enumerate(_test_cases, 1):\n"
+    "        try:\n"
+    "            root, nodes = _build_tree(values)\n"
+    "            result = candidate(root, nodes[p_val], nodes[q_val])\n"
+    "            assert result is not None and result.val == expected\n"
+    "            passed += 1\n"
+    "        except AssertionError:\n"
+    "            failed.append((i, expected, None if 'result' not in locals() or result is None else result.val, 'wrong answer'))\n"
+    "        except Exception as e:\n"
+    "            failed.append((i, expected, None, type(e).__name__ + ': ' + str(e)))\n"
+    "    print(f'{passed}/{len(_test_cases)} tests passed')\n"
+    "    if failed:\n"
+    "        print(f'\\n{len(failed)} test(s) failed:')\n"
+    "        for i, expected, got, err in failed:\n"
+    "            print(f'  Test #{i}: {err}; expected {expected}, got {got}')\n"
+    "    else:\n"
+    "        print('All tests passed! \\u2713')\n"
+    "    return not failed\n"
+)
+
+SERIALIZE_TREE_TEST_CODE = (
+    "# Test cases for serialize-and-deserialize-binary-tree\n"
+    "_test_cases = [[1, 2, 3, None, None, 4, 5], [], [1], [1, 2]]\n\n"
+    "def _build_tree(values):\n"
+    "    if not values:\n"
+    "        return None\n"
+    "    nodes = [None if v is None else TreeNode(v) for v in values]\n"
+    "    kids = nodes[::-1]\n"
+    "    root = kids.pop()\n"
+    "    for node in nodes:\n"
+    "        if node:\n"
+    "            if kids:\n"
+    "                node.left = kids.pop()\n"
+    "            if kids:\n"
+    "                node.right = kids.pop()\n"
+    "    return root\n\n"
+    "def _tree_to_level(root):\n"
+    "    out = []\n"
+    "    q = deque([root]) if root else deque()\n"
+    "    while q:\n"
+    "        node = q.popleft()\n"
+    "        if node is None:\n"
+    "            out.append(None)\n"
+    "            continue\n"
+    "        out.append(node.val)\n"
+    "        q.append(node.left)\n"
+    "        q.append(node.right)\n"
+    "    while out and out[-1] is None:\n"
+    "        out.pop()\n"
+    "    return out\n\n"
+    "def check(codec):\n"
+    "    passed = 0\n"
+    "    failed = []\n"
+    "    for i, values in enumerate(_test_cases, 1):\n"
+    "        try:\n"
+    "            root = _build_tree(values)\n"
+    "            result = codec.deserialize(codec.serialize(root))\n"
+    "            got = _tree_to_level(result)\n"
+    "            assert got == values\n"
+    "            passed += 1\n"
+    "        except AssertionError:\n"
+    "            failed.append((i, values, got, 'wrong answer'))\n"
+    "        except Exception as e:\n"
+    "            failed.append((i, values, None, type(e).__name__ + ': ' + str(e)))\n"
+    "    print(f'{passed}/{len(_test_cases)} tests passed')\n"
+    "    if failed:\n"
+    "        print(f'\\n{len(failed)} test(s) failed:')\n"
+    "        for i, expected, got, err in failed:\n"
+    "            print(f'  Test #{i}: {err}; expected {expected}, got {got}')\n"
+    "    else:\n"
+    "        print('All tests passed! \\u2713')\n"
+    "    return not failed\n"
+)
+
+CLONE_GRAPH_TEST_CODE = (
+    "# Test cases for clone-graph\n"
+    "_test_cases = [\n"
+    "    [[2, 4], [1, 3], [2, 4], [1, 3]],\n"
+    "    [[]],\n"
+    "    [],\n"
+    "]\n\n"
+    "def _build_graph(adj):\n"
+    "    if not adj:\n"
+    "        return None, []\n"
+    "    nodes = [Node(i + 1) for i in range(len(adj))]\n"
+    "    for node, neighbors in zip(nodes, adj):\n"
+    "        node.neighbors = [nodes[val - 1] for val in neighbors]\n"
+    "    return nodes[0], nodes\n\n"
+    "def _collect(node):\n"
+    "    if node is None:\n"
+    "        return []\n"
+    "    seen = {}\n"
+    "    q = deque([node])\n"
+    "    while q:\n"
+    "        cur = q.popleft()\n"
+    "        if cur.val in seen:\n"
+    "            continue\n"
+    "        seen[cur.val] = cur\n"
+    "        q.extend(cur.neighbors)\n"
+    "    return [seen[k] for k in sorted(seen)]\n\n"
+    "def _dump_graph(node):\n"
+    "    nodes = _collect(node)\n"
+    "    return [sorted(neighbor.val for neighbor in node.neighbors) for node in nodes]\n\n"
+    "def check(candidate):\n"
+    "    passed = 0\n"
+    "    failed = []\n"
+    "    for i, adj in enumerate(_test_cases, 1):\n"
+    "        root, original_nodes = _build_graph(adj)\n"
+    "        try:\n"
+    "            cloned = candidate(root)\n"
+    "            clone_nodes = _collect(cloned)\n"
+    "            assert _dump_graph(cloned) == [sorted(n) for n in adj]\n"
+    "            assert all(node not in original_nodes for node in clone_nodes)\n"
+    "            passed += 1\n"
+    "        except AssertionError:\n"
+    "            failed.append((i, 'wrong answer'))\n"
+    "        except Exception as e:\n"
+    "            failed.append((i, type(e).__name__ + ': ' + str(e)))\n"
+    "    print(f'{passed}/{len(_test_cases)} tests passed')\n"
+    "    if failed:\n"
+    "        print(f'\\n{len(failed)} test(s) failed:')\n"
+    "        for i, err in failed:\n"
+    "            print(f'  Test #{i}: {err}')\n"
+    "    else:\n"
+    "        print('All tests passed! \\u2713')\n"
+    "    return not failed\n"
+)
+
+PROBLEM_OVERRIDES = {
+    'clone-graph': {
+        'prompt': GRAPH_PROMPT,
+        'entry_point': "Solution().cloneGraph",
+        'test_code': CLONE_GRAPH_TEST_CODE,
+    },
+    'copy-list-with-random-pointer': {
+        'prompt': RANDOM_LIST_PROMPT,
+        'entry_point': "Solution().copyRandomList",
+        'test_code': COPY_RANDOM_LIST_TEST_CODE,
+    },
+    'design-add-and-search-words-data-structure': {
+        'prompt': BASIC_PROMPT,
+        'entry_point': "WordDictionary",
+        'test_code': _object_test_code('design-add-and-search-words-data-structure', [
+            (['WordDictionary', 'addWord', 'addWord', 'addWord', 'search', 'search', 'search', 'search'],
+             [[], ['bad'], ['dad'], ['mad'], ['pad'], ['bad'], ['.ad'], ['b..']],
+             [None, None, None, None, False, True, True, True]),
+        ]),
+    },
+    'design-twitter': {
+        'prompt': BASIC_PROMPT,
+        'entry_point': "Twitter",
+        'test_code': _object_test_code('design-twitter', [
+            (['Twitter', 'postTweet', 'getNewsFeed', 'follow', 'postTweet', 'getNewsFeed', 'unfollow', 'getNewsFeed'],
+             [[], [1, 5], [1], [1, 2], [2, 6], [1], [1, 2], [1]],
+             [None, None, [5], None, None, [6, 5], None, [5]]),
+        ]),
+    },
+    'detect-squares': {
+        'prompt': BASIC_PROMPT,
+        'entry_point': "DetectSquares",
+        'test_code': _object_test_code('detect-squares', [
+            (['DetectSquares', 'add', 'add', 'add', 'count', 'count', 'add', 'count'],
+             [[], [[3, 10]], [[11, 2]], [[3, 2]], [[11, 10]], [[14, 8]], [[11, 2]], [[11, 10]]],
+             [None, None, None, None, 1, 0, None, 2]),
+        ]),
+    },
+    'encode-and-decode-strings': {
+        'prompt': BASIC_PROMPT,
+        'entry_point': "Solution()",
+        'test_code': ENCODE_DECODE_TEST_CODE,
+    },
+    'find-median-from-data-stream': {
+        'prompt': BASIC_PROMPT,
+        'entry_point': "MedianFinder",
+        'test_code': _object_test_code('find-median-from-data-stream', [
+            (['MedianFinder', 'addNum', 'addNum', 'findMedian', 'addNum', 'findMedian'],
+             [[], [1], [2], [], [3], []],
+             [None, None, None, 1.5, None, 2.0]),
+            (['MedianFinder', 'addNum', 'findMedian', 'addNum', 'findMedian'],
+             [[], [-1], [], [-2], []],
+             [None, None, -1.0, None, -1.5]),
+        ]),
+    },
+    'implement-trie-prefix-tree': {
+        'prompt': BASIC_PROMPT,
+        'entry_point': "Trie",
+        'test_code': _object_test_code('implement-trie-prefix-tree', [
+            (['Trie', 'insert', 'search', 'search', 'startsWith', 'insert', 'search'],
+             [[], ['apple'], ['apple'], ['app'], ['app'], ['app'], ['app']],
+             [None, None, True, False, True, None, True]),
+        ]),
+    },
+    'kth-largest-element-in-a-stream': {
+        'prompt': BASIC_PROMPT,
+        'entry_point': "KthLargest",
+        'test_code': _object_test_code('kth-largest-element-in-a-stream', [
+            (['KthLargest', 'add', 'add', 'add', 'add', 'add'],
+             [[3, [4, 5, 8, 2]], [3], [5], [10], [9], [4]],
+             [None, 4, 5, 5, 8, 8]),
+            (['KthLargest', 'add', 'add'],
+             [[1, []], [-3], [-2]],
+             [None, -3, -2]),
+        ]),
+    },
+    'lowest-common-ancestor-of-a-binary-search-tree': {
+        'prompt': TREE_PROMPT,
+        'entry_point': "Solution().lowestCommonAncestor",
+        'test_code': BST_LCA_TEST_CODE,
+    },
+    'lru-cache': {
+        'prompt': BASIC_PROMPT,
+        'entry_point': "LRUCache",
+        'test_code': _object_test_code('lru-cache', [
+            (['LRUCache', 'put', 'put', 'get', 'put', 'get', 'put', 'get', 'get', 'get'],
+             [[2], [1, 1], [2, 2], [1], [3, 3], [2], [4, 4], [1], [3], [4]],
+             [None, None, None, 1, None, -1, None, -1, 3, 4]),
+        ]),
+    },
+    'min-stack': {
+        'prompt': BASIC_PROMPT,
+        'entry_point': "MinStack",
+        'test_code': _object_test_code('min-stack', [
+            (['MinStack', 'push', 'push', 'push', 'getMin', 'pop', 'top', 'getMin'],
+             [[], [-2], [0], [-3], [], [], [], []],
+             [None, None, None, None, -3, None, 0, -2]),
+            (['MinStack', 'push', 'push', 'getMin', 'top', 'pop', 'getMin'],
+             [[], [1], [2], [], [], [], []],
+             [None, None, None, 1, 2, None, 1]),
+        ]),
+    },
+    'serialize-and-deserialize-binary-tree': {
+        'prompt': TREE_PROMPT,
+        'entry_point': "Codec()",
+        'test_code': SERIALIZE_TREE_TEST_CODE,
+    },
+    'time-based-key-value-store': {
+        'prompt': BASIC_PROMPT,
+        'entry_point': "TimeMap",
+        'test_code': _object_test_code('time-based-key-value-store', [
+            (['TimeMap', 'set', 'get', 'get', 'set', 'get', 'get'],
+             [[], ['foo', 'bar', 1], ['foo', 1], ['foo', 3], ['foo', 'bar2', 4], ['foo', 4], ['foo', 5]],
+             [None, None, 'bar', 'bar', None, 'bar2', 'bar2']),
+            (['TimeMap', 'get', 'set', 'get'],
+             [[], ['missing', 1], ['love', 'high', 10], ['love', 5]],
+             [None, '', None, '']),
+        ]),
+    },
+}
 
 
 # --------------------------------------------------------------------------
@@ -202,15 +669,23 @@ def dump_test_files(lcd, slugs):
     """Write inspectable, runnable test files for the 150 deck problems."""
     for slug in slugs:
         if slug not in lcd:
-            continue
-        prompt = lcd[slug]["prompt"].replace("from sortedcontainers import SortedList", "")
+            override = PROBLEM_OVERRIDES.get(slug)
+            if not override:
+                continue
+            prompt = override["prompt"]
+            test_code = override["test_code"]
+            entry_point = override["entry_point"]
+        else:
+            prompt = lcd[slug]["prompt"].replace("from sortedcontainers import SortedList", "")
+            test_code = lcd[slug]["test_code"]
+            entry_point = lcd[slug]["entry_point"]
         content = (
             "# Auto-generated by build_pro_deck.py — do not edit by hand.\n"
             "# Paste your Solution class where indicated, then run to self-test.\n\n"
             + prompt + "\n\n"
             "# ==== YOUR SOLUTION HERE ====\n\n\n"
-            + lcd[slug]["test_code"]
-            + "\ncheck(%s)\n" % lcd[slug]["entry_point"]
+            + test_code
+            + "\ncheck(%s)\n" % entry_point
         )
         with open(os.path.join(TEST_CODE_DIR, slug + ".py"), "w") as f:
             f.write(content)
@@ -238,11 +713,14 @@ def getLeetCodeData(title_slug, isPaid=False):
     '''
         hints_html += "</div>"
     cs = q["codeSnippets"]
+    code = cs[2]["code"] if cs and len(cs) > 2 and "code" in cs[2] else ""
+    if not code and title_slug in CODE_SNIPPET_OVERRIDES:
+        code = CODE_SNIPPET_OVERRIDES[title_slug]
     return {
         "Id": q["questionId"], "Title": q["title"], "TitleSlug": q["titleSlug"],
         "TopicTags": json.dumps(topicTagsNew), "Difficulty": q["difficulty"],
         "Description": q["content"], "Notes": "",
-        "CodeSnippets": cs[2]["code"] if cs and len(cs) > 2 and "code" in cs[2] else "",
+        "CodeSnippets": code,
         "Hints": hints_html, "Tags": tags,
     }
 
@@ -317,7 +795,13 @@ def main():
             lc = getLeetCodeData(slug, isPaid=slug in paidOnly)
             sol = getNeetCodeSolutionHTML(slug)
             if slug not in lcd:
-                missing.append(slug); prompt = entry = test_code = ""
+                override = PROBLEM_OVERRIDES.get(slug)
+                if override:
+                    prompt = override["prompt"]
+                    entry = override["entry_point"]
+                    test_code = override["test_code"]
+                else:
+                    missing.append(slug); prompt = entry = test_code = ""
             else:
                 prompt = lcd[slug]["prompt"].replace("from sortedcontainers import SortedList", "")
                 entry = lcd[slug]["entry_point"]
@@ -339,7 +823,7 @@ def main():
     genanki.Package(decks, media_files=media_files).write_to_file(APKG_OUT)
     print(f"WROTE {APKG_OUT}  model_id={model_id}  decks={len(decks)}")
     print(f"test files -> {TEST_CODE_DIR}/  ({len(slugs) - len(missing)} written)")
-    print(f"empty tests (design/class problems, no dataset): {len(missing)} -> {missing}")
+    print(f"cards without test coverage: {len(missing)} -> {missing}")
 
 
 if __name__ == "__main__":
